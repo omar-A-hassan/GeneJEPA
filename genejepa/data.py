@@ -136,6 +136,17 @@ class Tahoe100MDataModule(L.LightningDataModule):
 
         if not data_file_paths or not metadata_file_path:
             raise FileNotFoundError(f"Required .parquet files not found in {self.repo_id}.")
+
+        # Optional: limit downloads for constrained environments (e.g., Kaggle)
+        max_files_env = os.getenv("TAHOE_MAX_FILES")
+        if max_files_env:
+            try:
+                max_files = int(max_files_env)
+                if max_files > 0:
+                    data_file_paths = data_file_paths[:max_files]
+                    log.warning(f"TAHOE_MAX_FILES set to {max_files}; downloading a subset of Tahoe data shards.")
+            except ValueError:
+                log.warning(f"Ignoring invalid TAHOE_MAX_FILES='{max_files_env}' (must be an integer).")
         
         files_to_download = data_file_paths + [metadata_file_path]
         local_file_manifest = {"data_files": [], "metadata_file": ""}
