@@ -846,7 +846,7 @@ if __name__ == "__main__":
     strategy = "auto"
     if num_devices > 1:
         log.info("Multiple devices detected. Using DDPStrategy(find_unused_parameters=True).")
-        strategy = DDPStrategy(find_unused_parameters=True)
+        strategy = DDPStrategy(find_unused_parameters=False)
 
     supports_bf16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
     resolved_precision = "bf16-mixed" if supports_bf16 else "16-mixed"
