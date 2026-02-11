@@ -378,11 +378,14 @@ class Tahoe100MDataModule(L.LightningDataModule):
         if is_train:
             rank = torch.distributed.get_rank() if (torch.distributed.is_available() and torch.distributed.is_initialized()) else 0
             shuffle_seed = int(time.time()) + rank
-            shuffle_buffer_size = 50_000
-            hf_dataset = hf_dataset.shuffle(
-                seed=shuffle_seed,
-                buffer_size=shuffle_buffer_size
-            )
+            if use_streaming:
+                shuffle_buffer_size = 50_000
+                hf_dataset = hf_dataset.shuffle(
+                    seed=shuffle_seed,
+                    buffer_size=shuffle_buffer_size
+                )
+            else:
+                hf_dataset = hf_dataset.shuffle(seed=shuffle_seed)
 
         if torch.distributed.is_available() and torch.distributed.is_initialized():
             world_size = torch.distributed.get_world_size()
