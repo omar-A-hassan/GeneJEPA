@@ -666,13 +666,14 @@ if __name__ == "__main__":
     model_config = ModelConfig()
     train_config = TrainingConfig()
     data_config = DataConfig()
-        if cli.batch_size is not None:
-            data_config.batch_size = int(cli.batch_size)
-        if cli.num_workers is not None:
-            data_config.num_workers = int(cli.num_workers)
-        if cli.max_epochs is not None:
-            train_config.max_epochs = int(cli.max_epochs)
     exp_config = ExperimentConfig()
+
+    if cli.batch_size is not None:
+        data_config.batch_size = int(cli.batch_size)
+    if cli.num_workers is not None:
+        data_config.num_workers = int(cli.num_workers)
+    if cli.max_epochs is not None:
+        train_config.max_epochs = int(cli.max_epochs)
 
     # Set the global random seed for reproducibility across all libraries (PyTorch,
     # NumPy, Python's random, etc.). The `workers=True` flag ensures that dataloader
