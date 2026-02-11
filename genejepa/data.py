@@ -371,7 +371,9 @@ class Tahoe100MDataModule(L.LightningDataModule):
             log.warning("Received an empty file list for dataloader creation. Returning an empty loader.")
             return DataLoader([], batch_size=self.data_config.batch_size)
             
-        hf_dataset = load_dataset("parquet", data_files=file_list, streaming=True, split="train")
+        streaming_env = os.getenv("TAHOE_STREAMING", "1").strip().lower()
+        use_streaming = streaming_env not in {"0", "false", "no", "off"}
+        hf_dataset = load_dataset("parquet", data_files=file_list, streaming=use_streaming, split="train")
         
         if is_train:
             rank = torch.distributed.get_rank() if (torch.distributed.is_available() and torch.distributed.is_initialized()) else 0
@@ -394,13 +396,16 @@ class Tahoe100MDataModule(L.LightningDataModule):
 
         n_shards_after_ddp = getattr(hf_dataset, "n_shards", 1)
         
-        if is_train:
-            num_workers = 0  # min(self.data_config.num_workers, n_shards_after_ddp)
-            if num_workers < self.data_config.num_workers:
-                log.warning(f"Capping train dataloader workers from {self.data_config.num_workers} to {num_workers} to match available data shards.")
+        if use_streaming:
+            if is_train:
+                num_workers = 0  # min(self.data_config.num_workers, n_shards_after_ddp)
+                if num_workers < self.data_config.num_workers:
+                    log.warning(f"Capping train dataloader workers from {self.data_config.num_workers} to {num_workers} to match available data shards.")
+            else:
+                log.info("Setting validation dataloader workers to 0 for stability with streaming.")
+                num_workers = 0
         else:
-            log.info("Setting validation dataloader workers to 0 for stability with streaming.")
-            num_workers = 0
+            num_workers = max(0, int(self.data_config.num_workers))
 
         return DataLoader(
             dataset,
@@ -408,7 +413,7 @@ class Tahoe100MDataModule(L.LightningDataModule):
             collate_fn=self._collate_fn,
             num_workers=num_workers,
             pin_memory=torch.cuda.is_available(),
-            persistent_workers=False,
+            persistent_workers=num_workers > 0,
         )
 
     def train_dataloader(self) -> DataLoader:

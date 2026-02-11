@@ -636,16 +636,22 @@ if __name__ == "__main__":
                         help="If set with --export-foundation-map, do not train; just export and exit.")
     parser.add_argument("--tahoe-max-files", type=int, default=None,
                         help="Limit Tahoe shard downloads (overrides TAHOE_MAX_FILES env var).")
+    parser.add_argument("--streaming", type=str, choices=["true", "false"], default=None,
+                        help="Enable or disable streaming reads (overrides TAHOE_STREAMING env var).")
     parser.add_argument("--batch-size", type=int, default=None,
                         help="Override DataConfig.batch_size.")
     parser.add_argument("--num-workers", type=int, default=None,
                         help="Override DataConfig.num_workers.")
+    parser.add_argument("--train-samples", type=int, default=None,
+                        help="Override DataConfig.train_samples.")
     parser.add_argument("--max-epochs", type=int, default=None,
                         help="Override TrainingConfig.max_epochs.")
     cli, _ = parser.parse_known_args()
 
     if cli.tahoe_max_files is not None:
         os.environ["TAHOE_MAX_FILES"] = str(cli.tahoe_max_files)
+    if cli.streaming is not None:
+        os.environ["TAHOE_STREAMING"] = "1" if cli.streaming == "true" else "0"
 
     # EARLY EXPORT: do NOT touch DataModule or load_dataset
     if cli.export_foundation_map and cli.export_only:
@@ -672,6 +678,8 @@ if __name__ == "__main__":
         data_config.batch_size = int(cli.batch_size)
     if cli.num_workers is not None:
         data_config.num_workers = int(cli.num_workers)
+    if cli.train_samples is not None:
+        data_config.train_samples = int(cli.train_samples)
     if cli.max_epochs is not None:
         train_config.max_epochs = int(cli.max_epochs)
 
