@@ -72,6 +72,20 @@ class Tahoe100MDataset(IterableDataset):
             }
 
 
+class _RankShardedIterableDataset(IterableDataset):
+    """Simple rank sharding for iterable datasets without a native shard() method."""
+    def __init__(self, dataset: IterableDataset, rank: int, world_size: int):
+        super().__init__()
+        self.dataset = dataset
+        self.rank = rank
+        self.world_size = world_size
+
+    def __iter__(self):
+        for i, item in enumerate(self.dataset):
+            if i % self.world_size == self.rank:
+                yield item
+
+
 class Tahoe100MDataModule(L.LightningDataModule):
     """
     Final, robust DataModule for Tahoe-100M with two key improvements:
@@ -359,11 +373,6 @@ class Tahoe100MDataModule(L.LightningDataModule):
             
         hf_dataset = load_dataset("parquet", data_files=file_list, streaming=True, split="train")
         
-        if torch.distributed.is_available() and torch.distributed.is_initialized():
-            world_size = torch.distributed.get_world_size()
-            rank = torch.distributed.get_rank()
-            hf_dataset = hf_dataset.shard(num_shards=world_size, index=rank)
-
         if is_train:
             rank = torch.distributed.get_rank() if (torch.distributed.is_available() and torch.distributed.is_initialized()) else 0
             shuffle_seed = int(time.time()) + rank
@@ -372,6 +381,14 @@ class Tahoe100MDataModule(L.LightningDataModule):
                 seed=shuffle_seed,
                 buffer_size=shuffle_buffer_size
             )
+
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            world_size = torch.distributed.get_world_size()
+            rank = torch.distributed.get_rank()
+            if hasattr(hf_dataset, "shard"):
+                hf_dataset = hf_dataset.shard(num_shards=world_size, index=rank)
+            else:
+                hf_dataset = _RankShardedIterableDataset(hf_dataset, rank=rank, world_size=world_size)
 
         dataset = Tahoe100MDataset(hf_dataset, self.gene_map)
 
